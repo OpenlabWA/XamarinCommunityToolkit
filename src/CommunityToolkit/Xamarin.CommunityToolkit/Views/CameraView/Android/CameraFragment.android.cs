@@ -260,7 +260,8 @@ namespace Xamarin.CommunityToolkit.UI.Views
 						maxPreviewWidth = CameraFragment.maxPreviewWidth;
 					}
 
-					photoSize = GetMaxSize(map.GetOutputSizes((int)ImageFormatType.Jpeg));
+					photoSize = GetCamSize(map.GetOutputSizes((int)ImageFormatType.Jpeg));
+
 					videoSize = GetMaxSize(map.GetOutputSizes(Class.FromType(typeof(MediaRecorder))));
 					previewSize = ChooseOptimalSize(
 						map.GetOutputSizes(Class.FromType(typeof(SurfaceTexture))) ?? throw new NullReferenceException(),
@@ -336,6 +337,25 @@ namespace Xamarin.CommunityToolkit.UI.Views
 
 			try
 			{
+
+				//var cfg = Bitmap.Config.Argb8888;
+				//if (cfg != null)
+				//{
+				//	var bmp = Bitmap.CreateBitmap(previewSize?.Width ?? 0, previewSize?.Height ?? 0, cfg);
+				//	using (var memstr = new MemoryStream())
+				//	{
+				//		var latest = texture?.Bitmap;
+				//		latest?.Compress(Bitmap.CompressFormat.Jpeg, 100, memstr);
+				//		var buff = memstr.GetBuffer();
+				//		Device.BeginInvokeOnMainThread(() =>
+				//		{
+				//			Element?.RaiseMediaCaptured(new MediaCapturedEventArgs(null, buff, 90));
+				//		});
+				//	}
+				//	return;
+				//}
+				
+
 				if (device != null && session != null && sessionBuilder != null && photoReader?.Surface != null)
 				{
 					session.StopRepeating();
@@ -374,18 +394,18 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			{
 				string? filePath = null;
 
-				// Calculate image rotation based on sensor and device orientation
-				var rotation = GetRotationCompensation();
+		// Calculate image rotation based on sensor and device orientation
+		var rotation = GetRotationCompensation();
 
-				// See TODO on CameraView.SavePhotoToFile
-				// Insert Exif information to jpeg file
-				/*if (Element.SavePhotoToFile)
-				{
-					filePath = ConstructMediaFilename(null, extension: "jpg");
-					File.WriteAllBytes(filePath, bytes);
-				}
-				Sound(MediaActionSoundType.ShutterClick);
-				OnPhoto(this, (filePath, Element.SavePhotoToFile ? null : bytes);*/
+		// See TODO on CameraView.SavePhotoToFile
+		// Insert Exif information to jpeg file
+		/*if (Element.SavePhotoToFile)
+		{
+			filePath = ConstructMediaFilename(null, extension: "jpg");
+			File.WriteAllBytes(filePath, bytes);
+		}
+		Sound(MediaActionSoundType.ShutterClick);
+		OnPhoto(this, (filePath, Element.SavePhotoToFile ? null : bytes);*/
 
 				Sound(MediaActionSoundType.ShutterClick);
 				OnPhoto(this, (filePath, bytes, rotation));
@@ -423,6 +443,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			DisposeMediaRecorder();
 
 			mediaRecorder = new MediaRecorder();
+
 			mediaRecorder.SetPreviewDisplay(previewSurface);
 
 			if (audioPermissionsGranted)
@@ -567,7 +588,7 @@ namespace Xamarin.CommunityToolkit.UI.Views
 					var previewSurface = new Surface(texture);
 					surfaces.Add(previewSurface);
 					sessionBuilder.AddTarget(previewSurface);
-
+					
 					// video mode
 					if (cameraTemplate is CameraTemplate.Record)
 					{
@@ -623,6 +644,13 @@ namespace Xamarin.CommunityToolkit.UI.Views
 				IsBusy = false;
 			}
 		}
+
+		private void Texture_FrameAvailable1(object sender, SurfaceTexture.FrameAvailableEventArgs e)
+		{
+
+		}
+
+
 
 		void CloseSession()
 		{
@@ -1019,6 +1047,28 @@ namespace Xamarin.CommunityToolkit.UI.Views
 			return maxSize ?? throw new NullReferenceException();
 		}
 
+		ASize GetCamSize(ASize[]? imageSizes)
+		{
+			ASize? maxSize = null;
+			long maxPixels = 0;
+
+			for (var i = 0; i < imageSizes?.Length; i++)
+			{
+				if (imageSizes[i].Height < 2000 && imageSizes[i].Width < 3000) return imageSizes[i];
+
+
+
+				long currentPixels = imageSizes[i].Width * imageSizes[i].Height;
+				if (currentPixels > maxPixels)
+				{
+					maxSize = imageSizes[i];
+					maxPixels = currentPixels;
+				}
+			}
+
+			return maxSize ?? throw new NullReferenceException();
+		}
+
 		// chooses the smallest one whose width and height are at least as large as the respective requested values
 		ASize ChooseOptimalSize(ASize[] choices, int width, int height, int maxWidth, int maxHeight, ASize aspectRatio)
 		{
@@ -1027,11 +1077,13 @@ namespace Xamarin.CommunityToolkit.UI.Views
 
 			var w = aspectRatio.Width;
 			var h = aspectRatio.Height;
-
+			var PosAspect = w / h > 0;
 			foreach (var option in choices)
 			{
+				if (option.Height < 800 && option.Height > 650) return option;
+
 				if (option.Width <= maxWidth && option.Height <= maxHeight &&
-					option.Height == option.Width * h / w)
+					option.Width / option.Height > 0 == PosAspect)
 				{
 					if (option.Width >= width && option.Height >= height)
 					{
